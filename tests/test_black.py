@@ -36,14 +36,14 @@ from click import unstyle
 from click.testing import CliRunner
 from pathspec import PathSpec
 
-import black
-import black.files
-from black import Feature, TargetVersion
-from black import re_compile_maybe_verbose as compile_pattern
-from black.cache import get_cache_dir, get_cache_file
-from black.debug import DebugVisitor
-from black.output import color_diff, diff
-from black.report import Report
+import twoblack
+import twoblack.files
+from twoblack import Feature, TargetVersion
+from twoblack import re_compile_maybe_verbose as compile_pattern
+from twoblack.cache import get_cache_dir, get_cache_file
+from twoblack.debug import DebugVisitor
+from twoblack.output import color_diff, diff
+from twoblack.report import Report
 
 # Import other test classes
 from tests.util import (
@@ -67,8 +67,8 @@ from tests.util import (
 THIS_FILE = Path(__file__)
 EMPTY_CONFIG = THIS_DIR / "data" / "empty_pyproject.toml"
 PY36_ARGS = [f"--target-version={version.name.lower()}" for version in PY36_VERSIONS]
-DEFAULT_EXCLUDE = black.re_compile_maybe_verbose(black.const.DEFAULT_EXCLUDES)
-DEFAULT_INCLUDE = black.re_compile_maybe_verbose(black.const.DEFAULT_INCLUDES)
+DEFAULT_EXCLUDE = twoblack.re_compile_maybe_verbose(twoblack.const.DEFAULT_EXCLUDES)
+DEFAULT_INCLUDE = twoblack.re_compile_maybe_verbose(twoblack.const.DEFAULT_INCLUDES)
 T = TypeVar("T")
 R = TypeVar("R")
 
@@ -127,7 +127,7 @@ def invokeBlack(
     runner = BlackRunner()
     if ignore_config:
         args = ["--verbose", "--config", str(THIS_DIR / "empty.toml"), *args]
-    result = runner.invoke(black.main, args, catch_exceptions=False)
+    result = runner.invoke(twoblack.main, args, catch_exceptions=False)
     assert result.stdout_bytes is not None
     assert result.stderr_bytes is not None
     msg = (
@@ -144,9 +144,9 @@ class BlackTestCase(BlackBaseTestCase):
 
     def test_empty_ff(self) -> None:
         expected = ""
-        tmp_file = Path(black.dump_to_file())
+        tmp_file = Path(twoblack.dump_to_file())
         try:
-            self.assertFalse(ff(tmp_file, write_back=black.WriteBack.YES))
+            self.assertFalse(ff(tmp_file, write_back=twoblack.WriteBack.YES))
             with open(tmp_file, encoding="utf8") as f:
                 actual = f.read()
         finally:
@@ -155,17 +155,17 @@ class BlackTestCase(BlackBaseTestCase):
 
     def test_experimental_string_processing_warns(self) -> None:
         self.assertWarns(
-            black.mode.Deprecated, black.Mode, experimental_string_processing=True
+            twoblack.mode.Deprecated, twoblack.Mode, experimental_string_processing=True
         )
 
     def test_piping(self) -> None:
         source, expected = read_data_from_file(PROJECT_ROOT / "src/black/__init__.py")
         result = BlackRunner().invoke(
-            black.main,
+            twoblack.main,
             [
                 "-",
                 "--fast",
-                f"--line-length={black.DEFAULT_LINE_LENGTH}",
+                f"--line-length={twoblack.DEFAULT_LINE_LENGTH}",
                 f"--config={EMPTY_CONFIG}",
             ],
             input=BytesIO(source.encode("utf8")),
@@ -173,8 +173,8 @@ class BlackTestCase(BlackBaseTestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertFormatEqual(expected, result.output)
         if source != result.output:
-            black.assert_equivalent(source, result.output)
-            black.assert_stable(source, result.output, DEFAULT_MODE)
+            twoblack.assert_equivalent(source, result.output)
+            twoblack.assert_stable(source, result.output, DEFAULT_MODE)
 
     def test_piping_diff(self) -> None:
         diff_header = re.compile(
@@ -186,12 +186,12 @@ class BlackTestCase(BlackBaseTestCase):
         args = [
             "-",
             "--fast",
-            f"--line-length={black.DEFAULT_LINE_LENGTH}",
+            f"--line-length={twoblack.DEFAULT_LINE_LENGTH}",
             "--diff",
             f"--config={EMPTY_CONFIG}",
         ]
         result = BlackRunner().invoke(
-            black.main, args, input=BytesIO(source.encode("utf8"))
+            twoblack.main, args, input=BytesIO(source.encode("utf8"))
         )
         self.assertEqual(result.exit_code, 0)
         actual = diff_header.sub(DETERMINISTIC_HEADER, result.output)
@@ -203,13 +203,13 @@ class BlackTestCase(BlackBaseTestCase):
         args = [
             "-",
             "--fast",
-            f"--line-length={black.DEFAULT_LINE_LENGTH}",
+            f"--line-length={twoblack.DEFAULT_LINE_LENGTH}",
             "--diff",
             "--color",
             f"--config={EMPTY_CONFIG}",
         ]
         result = BlackRunner().invoke(
-            black.main, args, input=BytesIO(source.encode("utf8"))
+            twoblack.main, args, input=BytesIO(source.encode("utf8"))
         )
         actual = result.output
         # Again, the contents are checked in a different test, so only look for colors.
@@ -226,47 +226,47 @@ class BlackTestCase(BlackBaseTestCase):
         mode = replace(
             DEFAULT_MODE,
             experimental_string_processing=False,
-            target_versions={black.TargetVersion.PY38},
+            target_versions={twoblack.TargetVersion.PY38},
         )
         actual = fs(source, mode=mode)
         sys.settrace(None)
         self.assertFormatEqual(expected, actual)
-        black.assert_equivalent(source, actual)
-        black.assert_stable(source, actual, black.FileMode())
+        twoblack.assert_equivalent(source, actual)
+        twoblack.assert_stable(source, actual, twoblack.FileMode())
 
     def test_pep_572_version_detection(self) -> None:
         source, _ = read_data("py_38", "pep_572")
-        root = black.lib2to3_parse(source)
-        features = black.get_features_used(root)
-        self.assertIn(black.Feature.ASSIGNMENT_EXPRESSIONS, features)
-        versions = black.detect_target_versions(root)
-        self.assertIn(black.TargetVersion.PY38, versions)
+        root = twoblack.lib2to3_parse(source)
+        features = twoblack.get_features_used(root)
+        self.assertIn(twoblack.Feature.ASSIGNMENT_EXPRESSIONS, features)
+        versions = twoblack.detect_target_versions(root)
+        self.assertIn(twoblack.TargetVersion.PY38, versions)
 
     def test_expression_ff(self) -> None:
         source, expected = read_data("simple_cases", "expression.py")
-        tmp_file = Path(black.dump_to_file(source))
+        tmp_file = Path(twoblack.dump_to_file(source))
         try:
-            self.assertTrue(ff(tmp_file, write_back=black.WriteBack.YES))
+            self.assertTrue(ff(tmp_file, write_back=twoblack.WriteBack.YES))
             with open(tmp_file, encoding="utf8") as f:
                 actual = f.read()
         finally:
             os.unlink(tmp_file)
         self.assertFormatEqual(expected, actual)
         with patch("black.dump_to_file", dump_to_stderr):
-            black.assert_equivalent(source, actual)
-            black.assert_stable(source, actual, DEFAULT_MODE)
+            twoblack.assert_equivalent(source, actual)
+            twoblack.assert_stable(source, actual, DEFAULT_MODE)
 
     def test_expression_diff(self) -> None:
         source, _ = read_data("simple_cases", "expression.py")
         expected, _ = read_data("simple_cases", "expression.diff")
-        tmp_file = Path(black.dump_to_file(source))
+        tmp_file = Path(twoblack.dump_to_file(source))
         diff_header = re.compile(
             rf"{re.escape(str(tmp_file))}\t\d\d\d\d-\d\d-\d\d "
             r"\d\d:\d\d:\d\d\.\d\d\d\d\d\d \+\d\d\d\d"
         )
         try:
             result = BlackRunner().invoke(
-                black.main, ["--diff", str(tmp_file), f"--config={EMPTY_CONFIG}"]
+                twoblack.main, ["--diff", str(tmp_file), f"--config={EMPTY_CONFIG}"]
             )
             self.assertEqual(result.exit_code, 0)
         finally:
@@ -274,7 +274,7 @@ class BlackTestCase(BlackBaseTestCase):
         actual = result.output
         actual = diff_header.sub(DETERMINISTIC_HEADER, actual)
         if expected != actual:
-            dump = black.dump_to_file(actual)
+            dump = twoblack.dump_to_file(actual)
             msg = (
                 "Expected diff isn't equal to the actual. If you made changes to"
                 " expression.py and this is an anticipated difference, overwrite"
@@ -285,10 +285,10 @@ class BlackTestCase(BlackBaseTestCase):
     def test_expression_diff_with_color(self) -> None:
         source, _ = read_data("simple_cases", "expression.py")
         expected, _ = read_data("simple_cases", "expression.diff")
-        tmp_file = Path(black.dump_to_file(source))
+        tmp_file = Path(twoblack.dump_to_file(source))
         try:
             result = BlackRunner().invoke(
-                black.main,
+                twoblack.main,
                 ["--diff", "--color", str(tmp_file), f"--config={EMPTY_CONFIG}"],
             )
         finally:
@@ -304,56 +304,56 @@ class BlackTestCase(BlackBaseTestCase):
 
     def test_detect_pos_only_arguments(self) -> None:
         source, _ = read_data("py_38", "pep_570")
-        root = black.lib2to3_parse(source)
-        features = black.get_features_used(root)
-        self.assertIn(black.Feature.POS_ONLY_ARGUMENTS, features)
-        versions = black.detect_target_versions(root)
-        self.assertIn(black.TargetVersion.PY38, versions)
+        root = twoblack.lib2to3_parse(source)
+        features = twoblack.get_features_used(root)
+        self.assertIn(twoblack.Feature.POS_ONLY_ARGUMENTS, features)
+        versions = twoblack.detect_target_versions(root)
+        self.assertIn(twoblack.TargetVersion.PY38, versions)
 
     def test_detect_debug_f_strings(self) -> None:
-        root = black.lib2to3_parse("""f"{x=}" """)
-        features = black.get_features_used(root)
-        self.assertIn(black.Feature.DEBUG_F_STRINGS, features)
-        versions = black.detect_target_versions(root)
-        self.assertIn(black.TargetVersion.PY38, versions)
+        root = twoblack.lib2to3_parse("""f"{x=}" """)
+        features = twoblack.get_features_used(root)
+        self.assertIn(twoblack.Feature.DEBUG_F_STRINGS, features)
+        versions = twoblack.detect_target_versions(root)
+        self.assertIn(twoblack.TargetVersion.PY38, versions)
 
-        root = black.lib2to3_parse(
+        root = twoblack.lib2to3_parse(
             """f"{x}"\nf'{"="}'\nf'{(x:=5)}'\nf'{f(a="3=")}'\nf'{x:=10}'\n"""
         )
-        features = black.get_features_used(root)
-        self.assertNotIn(black.Feature.DEBUG_F_STRINGS, features)
+        features = twoblack.get_features_used(root)
+        self.assertNotIn(twoblack.Feature.DEBUG_F_STRINGS, features)
 
         # We don't yet support feature version detection in nested f-strings
-        root = black.lib2to3_parse(
+        root = twoblack.lib2to3_parse(
             """f"heard a rumour that { f'{1+1=}' } ... seems like it could be true" """
         )
-        features = black.get_features_used(root)
-        self.assertNotIn(black.Feature.DEBUG_F_STRINGS, features)
+        features = twoblack.get_features_used(root)
+        self.assertNotIn(twoblack.Feature.DEBUG_F_STRINGS, features)
 
     @patch("black.dump_to_file", dump_to_stderr)
     def test_string_quotes(self) -> None:
         source, expected = read_data("miscellaneous", "string_quotes")
-        mode = black.Mode(preview=True)
+        mode = twoblack.Mode(preview=True)
         assert_format(source, expected, mode)
         mode = replace(mode, string_normalization=False)
         not_normalized = fs(source, mode=mode)
         self.assertFormatEqual(source.replace("\\\n", ""), not_normalized)
-        black.assert_equivalent(source, not_normalized)
-        black.assert_stable(source, not_normalized, mode=mode)
+        twoblack.assert_equivalent(source, not_normalized)
+        twoblack.assert_stable(source, not_normalized, mode=mode)
 
     def test_skip_magic_trailing_comma(self) -> None:
         source, _ = read_data("simple_cases", "expression")
         expected, _ = read_data(
             "miscellaneous", "expression_skip_magic_trailing_comma.diff"
         )
-        tmp_file = Path(black.dump_to_file(source))
+        tmp_file = Path(twoblack.dump_to_file(source))
         diff_header = re.compile(
             rf"{re.escape(str(tmp_file))}\t\d\d\d\d-\d\d-\d\d "
             r"\d\d:\d\d:\d\d\.\d\d\d\d\d\d \+\d\d\d\d"
         )
         try:
             result = BlackRunner().invoke(
-                black.main, ["-C", "--diff", str(tmp_file), f"--config={EMPTY_CONFIG}"]
+                twoblack.main, ["-C", "--diff", str(tmp_file), f"--config={EMPTY_CONFIG}"]
             )
             self.assertEqual(result.exit_code, 0)
         finally:
@@ -362,7 +362,7 @@ class BlackTestCase(BlackBaseTestCase):
         actual = diff_header.sub(DETERMINISTIC_HEADER, actual)
         actual = actual.rstrip() + "\n"  # the diff output has a trailing space
         if expected != actual:
-            dump = black.dump_to_file(actual)
+            dump = twoblack.dump_to_file(actual)
             msg = (
                 "Expected diff isn't equal to the actual. If you made changes to"
                 " expression.py and this is an anticipated difference, overwrite"
@@ -378,8 +378,8 @@ class BlackTestCase(BlackBaseTestCase):
         self.assertFormatEqual(expected, actual)
         major, minor = sys.version_info[:2]
         if major < 3 or (major <= 3 and minor < 7):
-            black.assert_equivalent(source, actual)
-        black.assert_stable(source, actual, DEFAULT_MODE)
+            twoblack.assert_equivalent(source, actual)
+        twoblack.assert_stable(source, actual, DEFAULT_MODE)
         # ensure black can parse this when the target is 3.6
         self.invokeBlack([str(source_path), "--target-version", "py36"])
         # but not on 3.7, because async/await is no longer an identifier
@@ -393,8 +393,8 @@ class BlackTestCase(BlackBaseTestCase):
         self.assertFormatEqual(expected, actual)
         major, minor = sys.version_info[:2]
         if major > 3 or (major == 3 and minor >= 7):
-            black.assert_equivalent(source, actual)
-        black.assert_stable(source, actual, DEFAULT_MODE)
+            twoblack.assert_equivalent(source, actual)
+        twoblack.assert_stable(source, actual, DEFAULT_MODE)
         # ensure black can parse this when the target is 3.7
         self.invokeBlack([str(source_path), "--target-version", "py37"])
         # but not on 3.6, because we use async as a reserved keyword
@@ -434,20 +434,20 @@ class BlackTestCase(BlackBaseTestCase):
             err_lines.append(msg)
 
         with patch("black.output._out", out), patch("black.output._err", err):
-            report.done(Path("f1"), black.Changed.NO)
+            report.done(Path("f1"), twoblack.Changed.NO)
             self.assertEqual(len(out_lines), 1)
             self.assertEqual(len(err_lines), 0)
             self.assertEqual(out_lines[-1], "f1 already well formatted, good job.")
             self.assertEqual(unstyle(str(report)), "1 file left unchanged.")
             self.assertEqual(report.return_code, 0)
-            report.done(Path("f2"), black.Changed.YES)
+            report.done(Path("f2"), twoblack.Changed.YES)
             self.assertEqual(len(out_lines), 2)
             self.assertEqual(len(err_lines), 0)
             self.assertEqual(out_lines[-1], "reformatted f2")
             self.assertEqual(
                 unstyle(str(report)), "1 file reformatted, 1 file left unchanged."
             )
-            report.done(Path("f3"), black.Changed.CACHED)
+            report.done(Path("f3"), twoblack.Changed.CACHED)
             self.assertEqual(len(out_lines), 3)
             self.assertEqual(len(err_lines), 0)
             self.assertEqual(
@@ -470,7 +470,7 @@ class BlackTestCase(BlackBaseTestCase):
                 " reformat.",
             )
             self.assertEqual(report.return_code, 123)
-            report.done(Path("f3"), black.Changed.YES)
+            report.done(Path("f3"), twoblack.Changed.YES)
             self.assertEqual(len(out_lines), 4)
             self.assertEqual(len(err_lines), 1)
             self.assertEqual(out_lines[-1], "reformatted f3")
@@ -500,7 +500,7 @@ class BlackTestCase(BlackBaseTestCase):
                 " reformat.",
             )
             self.assertEqual(report.return_code, 123)
-            report.done(Path("f4"), black.Changed.NO)
+            report.done(Path("f4"), twoblack.Changed.NO)
             self.assertEqual(len(out_lines), 6)
             self.assertEqual(len(err_lines), 2)
             self.assertEqual(out_lines[-1], "f4 already well formatted, good job.")
@@ -536,18 +536,18 @@ class BlackTestCase(BlackBaseTestCase):
             err_lines.append(msg)
 
         with patch("black.output._out", out), patch("black.output._err", err):
-            report.done(Path("f1"), black.Changed.NO)
+            report.done(Path("f1"), twoblack.Changed.NO)
             self.assertEqual(len(out_lines), 0)
             self.assertEqual(len(err_lines), 0)
             self.assertEqual(unstyle(str(report)), "1 file left unchanged.")
             self.assertEqual(report.return_code, 0)
-            report.done(Path("f2"), black.Changed.YES)
+            report.done(Path("f2"), twoblack.Changed.YES)
             self.assertEqual(len(out_lines), 0)
             self.assertEqual(len(err_lines), 0)
             self.assertEqual(
                 unstyle(str(report)), "1 file reformatted, 1 file left unchanged."
             )
-            report.done(Path("f3"), black.Changed.CACHED)
+            report.done(Path("f3"), twoblack.Changed.CACHED)
             self.assertEqual(len(out_lines), 0)
             self.assertEqual(len(err_lines), 0)
             self.assertEqual(
@@ -567,7 +567,7 @@ class BlackTestCase(BlackBaseTestCase):
                 " reformat.",
             )
             self.assertEqual(report.return_code, 123)
-            report.done(Path("f3"), black.Changed.YES)
+            report.done(Path("f3"), twoblack.Changed.YES)
             self.assertEqual(len(out_lines), 0)
             self.assertEqual(len(err_lines), 1)
             self.assertEqual(
@@ -595,7 +595,7 @@ class BlackTestCase(BlackBaseTestCase):
                 " reformat.",
             )
             self.assertEqual(report.return_code, 123)
-            report.done(Path("f4"), black.Changed.NO)
+            report.done(Path("f4"), twoblack.Changed.NO)
             self.assertEqual(len(out_lines), 0)
             self.assertEqual(len(err_lines), 2)
             self.assertEqual(
@@ -619,7 +619,7 @@ class BlackTestCase(BlackBaseTestCase):
             )
 
     def test_report_normal(self) -> None:
-        report = black.Report()
+        report = twoblack.Report()
         out_lines = []
         err_lines = []
 
@@ -630,19 +630,19 @@ class BlackTestCase(BlackBaseTestCase):
             err_lines.append(msg)
 
         with patch("black.output._out", out), patch("black.output._err", err):
-            report.done(Path("f1"), black.Changed.NO)
+            report.done(Path("f1"), twoblack.Changed.NO)
             self.assertEqual(len(out_lines), 0)
             self.assertEqual(len(err_lines), 0)
             self.assertEqual(unstyle(str(report)), "1 file left unchanged.")
             self.assertEqual(report.return_code, 0)
-            report.done(Path("f2"), black.Changed.YES)
+            report.done(Path("f2"), twoblack.Changed.YES)
             self.assertEqual(len(out_lines), 1)
             self.assertEqual(len(err_lines), 0)
             self.assertEqual(out_lines[-1], "reformatted f2")
             self.assertEqual(
                 unstyle(str(report)), "1 file reformatted, 1 file left unchanged."
             )
-            report.done(Path("f3"), black.Changed.CACHED)
+            report.done(Path("f3"), twoblack.Changed.CACHED)
             self.assertEqual(len(out_lines), 1)
             self.assertEqual(len(err_lines), 0)
             self.assertEqual(out_lines[-1], "reformatted f2")
@@ -663,7 +663,7 @@ class BlackTestCase(BlackBaseTestCase):
                 " reformat.",
             )
             self.assertEqual(report.return_code, 123)
-            report.done(Path("f3"), black.Changed.YES)
+            report.done(Path("f3"), twoblack.Changed.YES)
             self.assertEqual(len(out_lines), 2)
             self.assertEqual(len(err_lines), 1)
             self.assertEqual(out_lines[-1], "reformatted f3")
@@ -692,7 +692,7 @@ class BlackTestCase(BlackBaseTestCase):
                 " reformat.",
             )
             self.assertEqual(report.return_code, 123)
-            report.done(Path("f4"), black.Changed.NO)
+            report.done(Path("f4"), twoblack.Changed.NO)
             self.assertEqual(len(out_lines), 2)
             self.assertEqual(len(err_lines), 2)
             self.assertEqual(
@@ -716,20 +716,20 @@ class BlackTestCase(BlackBaseTestCase):
             )
 
     def test_lib2to3_parse(self) -> None:
-        with self.assertRaises(black.InvalidInput):
-            black.lib2to3_parse("invalid syntax")
+        with self.assertRaises(twoblack.InvalidInput):
+            twoblack.lib2to3_parse("invalid syntax")
 
         straddling = "x + y"
-        black.lib2to3_parse(straddling)
-        black.lib2to3_parse(straddling, {TargetVersion.PY36})
+        twoblack.lib2to3_parse(straddling)
+        twoblack.lib2to3_parse(straddling, {TargetVersion.PY36})
 
         py2_only = "print x"
-        with self.assertRaises(black.InvalidInput):
-            black.lib2to3_parse(py2_only, {TargetVersion.PY36})
+        with self.assertRaises(twoblack.InvalidInput):
+            twoblack.lib2to3_parse(py2_only, {TargetVersion.PY36})
 
         py3_only = "exec(x, end=y)"
-        black.lib2to3_parse(py3_only)
-        black.lib2to3_parse(py3_only, {TargetVersion.PY36})
+        twoblack.lib2to3_parse(py3_only)
+        twoblack.lib2to3_parse(py3_only, {TargetVersion.PY36})
 
     def test_get_features_used_decorator(self) -> None:
         # Test the feature detection of new decorator syntax
@@ -739,11 +739,11 @@ class BlackTestCase(BlackBaseTestCase):
         simples, relaxed = read_data("miscellaneous", "decorators")
         # skip explanation comments at the top of the file
         for simple_test in simples.split("##")[1:]:
-            node = black.lib2to3_parse(simple_test)
+            node = twoblack.lib2to3_parse(simple_test)
             decorator = str(node.children[0].children[0]).strip()
             self.assertNotIn(
                 Feature.RELAXED_DECORATORS,
-                black.get_features_used(node),
+                twoblack.get_features_used(node),
                 msg=(
                     f"decorator '{decorator}' follows python<=3.8 syntax"
                     "but is detected as 3.9+"
@@ -752,11 +752,11 @@ class BlackTestCase(BlackBaseTestCase):
             )
         # skip the '# output' comment at the top of the output part
         for relaxed_test in relaxed.split("##")[1:]:
-            node = black.lib2to3_parse(relaxed_test)
+            node = twoblack.lib2to3_parse(relaxed_test)
             decorator = str(node.children[0].children[0]).strip()
             self.assertIn(
                 Feature.RELAXED_DECORATORS,
-                black.get_features_used(node),
+                twoblack.get_features_used(node),
                 msg=(
                     f"decorator '{decorator}' uses python3.9+ syntax"
                     "but is detected as python<=3.8"
@@ -765,71 +765,71 @@ class BlackTestCase(BlackBaseTestCase):
             )
 
     def test_get_features_used(self) -> None:
-        node = black.lib2to3_parse("def f(*, arg): ...\n")
-        self.assertEqual(black.get_features_used(node), set())
-        node = black.lib2to3_parse("def f(*, arg,): ...\n")
-        self.assertEqual(black.get_features_used(node), {Feature.TRAILING_COMMA_IN_DEF})
-        node = black.lib2to3_parse("f(*arg,)\n")
+        node = twoblack.lib2to3_parse("def f(*, arg): ...\n")
+        self.assertEqual(twoblack.get_features_used(node), set())
+        node = twoblack.lib2to3_parse("def f(*, arg,): ...\n")
+        self.assertEqual(twoblack.get_features_used(node), {Feature.TRAILING_COMMA_IN_DEF})
+        node = twoblack.lib2to3_parse("f(*arg,)\n")
         self.assertEqual(
-            black.get_features_used(node), {Feature.TRAILING_COMMA_IN_CALL}
+            twoblack.get_features_used(node), {Feature.TRAILING_COMMA_IN_CALL}
         )
-        node = black.lib2to3_parse("def f(*, arg): f'string'\n")
-        self.assertEqual(black.get_features_used(node), {Feature.F_STRINGS})
-        node = black.lib2to3_parse("123_456\n")
-        self.assertEqual(black.get_features_used(node), {Feature.NUMERIC_UNDERSCORES})
-        node = black.lib2to3_parse("123456\n")
-        self.assertEqual(black.get_features_used(node), set())
+        node = twoblack.lib2to3_parse("def f(*, arg): f'string'\n")
+        self.assertEqual(twoblack.get_features_used(node), {Feature.F_STRINGS})
+        node = twoblack.lib2to3_parse("123_456\n")
+        self.assertEqual(twoblack.get_features_used(node), {Feature.NUMERIC_UNDERSCORES})
+        node = twoblack.lib2to3_parse("123456\n")
+        self.assertEqual(twoblack.get_features_used(node), set())
         source, expected = read_data("simple_cases", "function")
-        node = black.lib2to3_parse(source)
+        node = twoblack.lib2to3_parse(source)
         expected_features = {
             Feature.TRAILING_COMMA_IN_CALL,
             Feature.TRAILING_COMMA_IN_DEF,
             Feature.F_STRINGS,
         }
-        self.assertEqual(black.get_features_used(node), expected_features)
-        node = black.lib2to3_parse(expected)
-        self.assertEqual(black.get_features_used(node), expected_features)
+        self.assertEqual(twoblack.get_features_used(node), expected_features)
+        node = twoblack.lib2to3_parse(expected)
+        self.assertEqual(twoblack.get_features_used(node), expected_features)
         source, expected = read_data("simple_cases", "expression")
-        node = black.lib2to3_parse(source)
-        self.assertEqual(black.get_features_used(node), set())
-        node = black.lib2to3_parse(expected)
-        self.assertEqual(black.get_features_used(node), set())
-        node = black.lib2to3_parse("lambda a, /, b: ...")
-        self.assertEqual(black.get_features_used(node), {Feature.POS_ONLY_ARGUMENTS})
-        node = black.lib2to3_parse("def fn(a, /, b): ...")
-        self.assertEqual(black.get_features_used(node), {Feature.POS_ONLY_ARGUMENTS})
-        node = black.lib2to3_parse("def fn(): yield a, b")
-        self.assertEqual(black.get_features_used(node), set())
-        node = black.lib2to3_parse("def fn(): return a, b")
-        self.assertEqual(black.get_features_used(node), set())
-        node = black.lib2to3_parse("def fn(): yield *b, c")
-        self.assertEqual(black.get_features_used(node), {Feature.UNPACKING_ON_FLOW})
-        node = black.lib2to3_parse("def fn(): return a, *b, c")
-        self.assertEqual(black.get_features_used(node), {Feature.UNPACKING_ON_FLOW})
-        node = black.lib2to3_parse("x = a, *b, c")
-        self.assertEqual(black.get_features_used(node), set())
-        node = black.lib2to3_parse("x: Any = regular")
-        self.assertEqual(black.get_features_used(node), set())
-        node = black.lib2to3_parse("x: Any = (regular, regular)")
-        self.assertEqual(black.get_features_used(node), set())
-        node = black.lib2to3_parse("x: Any = Complex(Type(1))[something]")
-        self.assertEqual(black.get_features_used(node), set())
-        node = black.lib2to3_parse("x: Tuple[int, ...] = a, b, c")
+        node = twoblack.lib2to3_parse(source)
+        self.assertEqual(twoblack.get_features_used(node), set())
+        node = twoblack.lib2to3_parse(expected)
+        self.assertEqual(twoblack.get_features_used(node), set())
+        node = twoblack.lib2to3_parse("lambda a, /, b: ...")
+        self.assertEqual(twoblack.get_features_used(node), {Feature.POS_ONLY_ARGUMENTS})
+        node = twoblack.lib2to3_parse("def fn(a, /, b): ...")
+        self.assertEqual(twoblack.get_features_used(node), {Feature.POS_ONLY_ARGUMENTS})
+        node = twoblack.lib2to3_parse("def fn(): yield a, b")
+        self.assertEqual(twoblack.get_features_used(node), set())
+        node = twoblack.lib2to3_parse("def fn(): return a, b")
+        self.assertEqual(twoblack.get_features_used(node), set())
+        node = twoblack.lib2to3_parse("def fn(): yield *b, c")
+        self.assertEqual(twoblack.get_features_used(node), {Feature.UNPACKING_ON_FLOW})
+        node = twoblack.lib2to3_parse("def fn(): return a, *b, c")
+        self.assertEqual(twoblack.get_features_used(node), {Feature.UNPACKING_ON_FLOW})
+        node = twoblack.lib2to3_parse("x = a, *b, c")
+        self.assertEqual(twoblack.get_features_used(node), set())
+        node = twoblack.lib2to3_parse("x: Any = regular")
+        self.assertEqual(twoblack.get_features_used(node), set())
+        node = twoblack.lib2to3_parse("x: Any = (regular, regular)")
+        self.assertEqual(twoblack.get_features_used(node), set())
+        node = twoblack.lib2to3_parse("x: Any = Complex(Type(1))[something]")
+        self.assertEqual(twoblack.get_features_used(node), set())
+        node = twoblack.lib2to3_parse("x: Tuple[int, ...] = a, b, c")
         self.assertEqual(
-            black.get_features_used(node), {Feature.ANN_ASSIGN_EXTENDED_RHS}
+            twoblack.get_features_used(node), {Feature.ANN_ASSIGN_EXTENDED_RHS}
         )
-        node = black.lib2to3_parse("try: pass\nexcept Something: pass")
-        self.assertEqual(black.get_features_used(node), set())
-        node = black.lib2to3_parse("try: pass\nexcept (*Something,): pass")
-        self.assertEqual(black.get_features_used(node), set())
-        node = black.lib2to3_parse("try: pass\nexcept *Group: pass")
-        self.assertEqual(black.get_features_used(node), {Feature.EXCEPT_STAR})
-        node = black.lib2to3_parse("a[*b]")
-        self.assertEqual(black.get_features_used(node), {Feature.VARIADIC_GENERICS})
-        node = black.lib2to3_parse("a[x, *y(), z] = t")
-        self.assertEqual(black.get_features_used(node), {Feature.VARIADIC_GENERICS})
-        node = black.lib2to3_parse("def fn(*args: *T): pass")
-        self.assertEqual(black.get_features_used(node), {Feature.VARIADIC_GENERICS})
+        node = twoblack.lib2to3_parse("try: pass\nexcept Something: pass")
+        self.assertEqual(twoblack.get_features_used(node), set())
+        node = twoblack.lib2to3_parse("try: pass\nexcept (*Something,): pass")
+        self.assertEqual(twoblack.get_features_used(node), set())
+        node = twoblack.lib2to3_parse("try: pass\nexcept *Group: pass")
+        self.assertEqual(twoblack.get_features_used(node), {Feature.EXCEPT_STAR})
+        node = twoblack.lib2to3_parse("a[*b]")
+        self.assertEqual(twoblack.get_features_used(node), {Feature.VARIADIC_GENERICS})
+        node = twoblack.lib2to3_parse("a[x, *y(), z] = t")
+        self.assertEqual(twoblack.get_features_used(node), {Feature.VARIADIC_GENERICS})
+        node = twoblack.lib2to3_parse("def fn(*args: *T): pass")
+        self.assertEqual(twoblack.get_features_used(node), {Feature.VARIADIC_GENERICS})
 
     def test_get_features_used_for_future_flags(self) -> None:
         for src, features in [
@@ -842,42 +842,42 @@ class BlackTestCase(BlackBaseTestCase):
             ("from __future__ import x, y", set()),
         ]:
             with self.subTest(src=src, features=features):
-                node = black.lib2to3_parse(src)
-                future_imports = black.get_future_imports(node)
+                node = twoblack.lib2to3_parse(src)
+                future_imports = twoblack.get_future_imports(node)
                 self.assertEqual(
-                    black.get_features_used(node, future_imports=future_imports),
+                    twoblack.get_features_used(node, future_imports=future_imports),
                     features,
                 )
 
     def test_get_future_imports(self) -> None:
-        node = black.lib2to3_parse("\n")
-        self.assertEqual(set(), black.get_future_imports(node))
-        node = black.lib2to3_parse("from __future__ import black\n")
-        self.assertEqual({"black"}, black.get_future_imports(node))
-        node = black.lib2to3_parse("from __future__ import multiple, imports\n")
-        self.assertEqual({"multiple", "imports"}, black.get_future_imports(node))
-        node = black.lib2to3_parse("from __future__ import (parenthesized, imports)\n")
-        self.assertEqual({"parenthesized", "imports"}, black.get_future_imports(node))
-        node = black.lib2to3_parse(
+        node = twoblack.lib2to3_parse("\n")
+        self.assertEqual(set(), twoblack.get_future_imports(node))
+        node = twoblack.lib2to3_parse("from __future__ import black\n")
+        self.assertEqual({"black"}, twoblack.get_future_imports(node))
+        node = twoblack.lib2to3_parse("from __future__ import multiple, imports\n")
+        self.assertEqual({"multiple", "imports"}, twoblack.get_future_imports(node))
+        node = twoblack.lib2to3_parse("from __future__ import (parenthesized, imports)\n")
+        self.assertEqual({"parenthesized", "imports"}, twoblack.get_future_imports(node))
+        node = twoblack.lib2to3_parse(
             "from __future__ import multiple\nfrom __future__ import imports\n"
         )
-        self.assertEqual({"multiple", "imports"}, black.get_future_imports(node))
-        node = black.lib2to3_parse("# comment\nfrom __future__ import black\n")
-        self.assertEqual({"black"}, black.get_future_imports(node))
-        node = black.lib2to3_parse('"""docstring"""\nfrom __future__ import black\n')
-        self.assertEqual({"black"}, black.get_future_imports(node))
-        node = black.lib2to3_parse("some(other, code)\nfrom __future__ import black\n")
-        self.assertEqual(set(), black.get_future_imports(node))
-        node = black.lib2to3_parse("from some.module import black\n")
-        self.assertEqual(set(), black.get_future_imports(node))
-        node = black.lib2to3_parse(
+        self.assertEqual({"multiple", "imports"}, twoblack.get_future_imports(node))
+        node = twoblack.lib2to3_parse("# comment\nfrom __future__ import black\n")
+        self.assertEqual({"black"}, twoblack.get_future_imports(node))
+        node = twoblack.lib2to3_parse('"""docstring"""\nfrom __future__ import black\n')
+        self.assertEqual({"black"}, twoblack.get_future_imports(node))
+        node = twoblack.lib2to3_parse("some(other, code)\nfrom __future__ import black\n")
+        self.assertEqual(set(), twoblack.get_future_imports(node))
+        node = twoblack.lib2to3_parse("from some.module import black\n")
+        self.assertEqual(set(), twoblack.get_future_imports(node))
+        node = twoblack.lib2to3_parse(
             "from __future__ import unicode_literals as _unicode_literals"
         )
-        self.assertEqual({"unicode_literals"}, black.get_future_imports(node))
-        node = black.lib2to3_parse(
+        self.assertEqual({"unicode_literals"}, twoblack.get_future_imports(node))
+        node = twoblack.lib2to3_parse(
             "from __future__ import unicode_literals as _lol, print"
         )
-        self.assertEqual({"unicode_literals", "print"}, black.get_future_imports(node))
+        self.assertEqual({"unicode_literals", "print"}, twoblack.get_future_imports(node))
 
     @pytest.mark.incompatible_with_mypyc
     def test_debug_visitor(self) -> None:
@@ -897,7 +897,7 @@ class BlackTestCase(BlackBaseTestCase):
         actual = "\n".join(out_lines) + "\n"
         log_name = ""
         if expected != actual:
-            log_name = black.dump_to_file(*out_lines)
+            log_name = twoblack.dump_to_file(*out_lines)
         self.assertEqual(
             expected,
             actual,
@@ -907,28 +907,28 @@ class BlackTestCase(BlackBaseTestCase):
     def test_format_file_contents(self) -> None:
         empty = ""
         mode = DEFAULT_MODE
-        with self.assertRaises(black.NothingChanged):
-            black.format_file_contents(empty, mode=mode, fast=False)
+        with self.assertRaises(twoblack.NothingChanged):
+            twoblack.format_file_contents(empty, mode=mode, fast=False)
         just_nl = "\n"
-        with self.assertRaises(black.NothingChanged):
-            black.format_file_contents(just_nl, mode=mode, fast=False)
+        with self.assertRaises(twoblack.NothingChanged):
+            twoblack.format_file_contents(just_nl, mode=mode, fast=False)
         same = "j = [1, 2, 3]\n"
-        with self.assertRaises(black.NothingChanged):
-            black.format_file_contents(same, mode=mode, fast=False)
+        with self.assertRaises(twoblack.NothingChanged):
+            twoblack.format_file_contents(same, mode=mode, fast=False)
         different = "j = [1,2,3]"
         expected = same
-        actual = black.format_file_contents(different, mode=mode, fast=False)
+        actual = twoblack.format_file_contents(different, mode=mode, fast=False)
         self.assertEqual(expected, actual)
         invalid = "return if you can"
-        with self.assertRaises(black.InvalidInput) as e:
-            black.format_file_contents(invalid, mode=mode, fast=False)
+        with self.assertRaises(twoblack.InvalidInput) as e:
+            twoblack.format_file_contents(invalid, mode=mode, fast=False)
         self.assertEqual(str(e.exception), "Cannot parse: 1:7: return if you can")
 
     def test_endmarker(self) -> None:
-        n = black.lib2to3_parse("\n")
-        self.assertEqual(n.type, black.syms.file_input)
+        n = twoblack.lib2to3_parse("\n")
+        self.assertEqual(n.type, twoblack.syms.file_input)
         self.assertEqual(len(n.children), 1)
-        self.assertEqual(n.children[0].type, black.token.ENDMARKER)
+        self.assertEqual(n.children[0].type, twoblack.token.ENDMARKER)
 
     @pytest.mark.incompatible_with_mypyc
     @unittest.skipIf(os.environ.get("SKIP_AST_PRINT"), "user set SKIP_AST_PRINT")
@@ -1002,13 +1002,13 @@ class BlackTestCase(BlackBaseTestCase):
             with open(path, "r") as fh:
                 actual = fh.read()
             # verify cache with --pyi is separate
-            pyi_cache = black.read_cache(pyi_mode)
+            pyi_cache = twoblack.read_cache(pyi_mode)
             self.assertIn(str(path), pyi_cache)
-            normal_cache = black.read_cache(DEFAULT_MODE)
+            normal_cache = twoblack.read_cache(DEFAULT_MODE)
             self.assertNotIn(str(path), normal_cache)
         self.assertFormatEqual(expected, actual)
-        black.assert_equivalent(contents, actual)
-        black.assert_stable(contents, actual, pyi_mode)
+        twoblack.assert_equivalent(contents, actual)
+        twoblack.assert_stable(contents, actual, pyi_mode)
 
     @event_loop()
     def test_multi_file_force_pyi(self) -> None:
@@ -1029,8 +1029,8 @@ class BlackTestCase(BlackBaseTestCase):
                     actual = fh.read()
                 self.assertEqual(actual, expected)
             # verify cache with --pyi is separate
-            pyi_cache = black.read_cache(pyi_mode)
-            normal_cache = black.read_cache(reg_mode)
+            pyi_cache = twoblack.read_cache(pyi_mode)
+            normal_cache = twoblack.read_cache(reg_mode)
             for path in paths:
                 self.assertIn(str(path), pyi_cache)
                 self.assertNotIn(str(path), normal_cache)
@@ -1038,7 +1038,7 @@ class BlackTestCase(BlackBaseTestCase):
     def test_pipe_force_pyi(self) -> None:
         source, expected = read_data("miscellaneous", "force_pyi")
         result = CliRunner().invoke(
-            black.main, ["-", "-q", "--pyi"], input=BytesIO(source.encode("utf8"))
+            twoblack.main, ["-", "-q", "--pyi"], input=BytesIO(source.encode("utf8"))
         )
         self.assertEqual(result.exit_code, 0)
         actual = result.output
@@ -1056,9 +1056,9 @@ class BlackTestCase(BlackBaseTestCase):
             with open(path, "r") as fh:
                 actual = fh.read()
             # verify cache with --target-version is separate
-            py36_cache = black.read_cache(py36_mode)
+            py36_cache = twoblack.read_cache(py36_mode)
             self.assertIn(str(path), py36_cache)
-            normal_cache = black.read_cache(reg_mode)
+            normal_cache = twoblack.read_cache(reg_mode)
             self.assertNotIn(str(path), normal_cache)
         self.assertEqual(actual, expected)
 
@@ -1081,8 +1081,8 @@ class BlackTestCase(BlackBaseTestCase):
                     actual = fh.read()
                 self.assertEqual(actual, expected)
             # verify cache with --target-version is separate
-            pyi_cache = black.read_cache(py36_mode)
-            normal_cache = black.read_cache(reg_mode)
+            pyi_cache = twoblack.read_cache(py36_mode)
+            normal_cache = twoblack.read_cache(reg_mode)
             for path in paths:
                 self.assertIn(str(path), pyi_cache)
                 self.assertNotIn(str(path), normal_cache)
@@ -1090,7 +1090,7 @@ class BlackTestCase(BlackBaseTestCase):
     def test_pipe_force_py36(self) -> None:
         source, expected = read_data("miscellaneous", "force_py36")
         result = CliRunner().invoke(
-            black.main,
+            twoblack.main,
             ["-", "-q", "--target-version=py36"],
             input=BytesIO(source.encode("utf8")),
         )
@@ -1102,98 +1102,98 @@ class BlackTestCase(BlackBaseTestCase):
     def test_reformat_one_with_stdin(self) -> None:
         with patch(
             "black.format_stdin_to_stdout",
-            return_value=lambda *args, **kwargs: black.Changed.YES,
+            return_value=lambda *args, **kwargs: twoblack.Changed.YES,
         ) as fsts:
             report = MagicMock()
             path = Path("-")
-            black.reformat_one(
+            twoblack.reformat_one(
                 path,
                 fast=True,
-                write_back=black.WriteBack.YES,
+                write_back=twoblack.WriteBack.YES,
                 mode=DEFAULT_MODE,
                 report=report,
             )
             fsts.assert_called_once()
-            report.done.assert_called_with(path, black.Changed.YES)
+            report.done.assert_called_with(path, twoblack.Changed.YES)
 
     @pytest.mark.incompatible_with_mypyc
     def test_reformat_one_with_stdin_filename(self) -> None:
         with patch(
             "black.format_stdin_to_stdout",
-            return_value=lambda *args, **kwargs: black.Changed.YES,
+            return_value=lambda *args, **kwargs: twoblack.Changed.YES,
         ) as fsts:
             report = MagicMock()
             p = "foo.py"
             path = Path(f"__BLACK_STDIN_FILENAME__{p}")
             expected = Path(p)
-            black.reformat_one(
+            twoblack.reformat_one(
                 path,
                 fast=True,
-                write_back=black.WriteBack.YES,
+                write_back=twoblack.WriteBack.YES,
                 mode=DEFAULT_MODE,
                 report=report,
             )
             fsts.assert_called_once_with(
-                fast=True, write_back=black.WriteBack.YES, mode=DEFAULT_MODE
+                fast=True, write_back=twoblack.WriteBack.YES, mode=DEFAULT_MODE
             )
             # __BLACK_STDIN_FILENAME__ should have been stripped
-            report.done.assert_called_with(expected, black.Changed.YES)
+            report.done.assert_called_with(expected, twoblack.Changed.YES)
 
     @pytest.mark.incompatible_with_mypyc
     def test_reformat_one_with_stdin_filename_pyi(self) -> None:
         with patch(
             "black.format_stdin_to_stdout",
-            return_value=lambda *args, **kwargs: black.Changed.YES,
+            return_value=lambda *args, **kwargs: twoblack.Changed.YES,
         ) as fsts:
             report = MagicMock()
             p = "foo.pyi"
             path = Path(f"__BLACK_STDIN_FILENAME__{p}")
             expected = Path(p)
-            black.reformat_one(
+            twoblack.reformat_one(
                 path,
                 fast=True,
-                write_back=black.WriteBack.YES,
+                write_back=twoblack.WriteBack.YES,
                 mode=DEFAULT_MODE,
                 report=report,
             )
             fsts.assert_called_once_with(
                 fast=True,
-                write_back=black.WriteBack.YES,
+                write_back=twoblack.WriteBack.YES,
                 mode=replace(DEFAULT_MODE, is_pyi=True),
             )
             # __BLACK_STDIN_FILENAME__ should have been stripped
-            report.done.assert_called_with(expected, black.Changed.YES)
+            report.done.assert_called_with(expected, twoblack.Changed.YES)
 
     @pytest.mark.incompatible_with_mypyc
     def test_reformat_one_with_stdin_filename_ipynb(self) -> None:
         with patch(
             "black.format_stdin_to_stdout",
-            return_value=lambda *args, **kwargs: black.Changed.YES,
+            return_value=lambda *args, **kwargs: twoblack.Changed.YES,
         ) as fsts:
             report = MagicMock()
             p = "foo.ipynb"
             path = Path(f"__BLACK_STDIN_FILENAME__{p}")
             expected = Path(p)
-            black.reformat_one(
+            twoblack.reformat_one(
                 path,
                 fast=True,
-                write_back=black.WriteBack.YES,
+                write_back=twoblack.WriteBack.YES,
                 mode=DEFAULT_MODE,
                 report=report,
             )
             fsts.assert_called_once_with(
                 fast=True,
-                write_back=black.WriteBack.YES,
+                write_back=twoblack.WriteBack.YES,
                 mode=replace(DEFAULT_MODE, is_ipynb=True),
             )
             # __BLACK_STDIN_FILENAME__ should have been stripped
-            report.done.assert_called_with(expected, black.Changed.YES)
+            report.done.assert_called_with(expected, twoblack.Changed.YES)
 
     @pytest.mark.incompatible_with_mypyc
     def test_reformat_one_with_stdin_and_existing_path(self) -> None:
         with patch(
             "black.format_stdin_to_stdout",
-            return_value=lambda *args, **kwargs: black.Changed.YES,
+            return_value=lambda *args, **kwargs: twoblack.Changed.YES,
         ) as fsts:
             report = MagicMock()
             # Even with an existing file, since we are forcing stdin, black
@@ -1203,25 +1203,25 @@ class BlackTestCase(BlackBaseTestCase):
             self.assertTrue(p.is_file())
             path = Path(f"__BLACK_STDIN_FILENAME__{p}")
             expected = Path(p)
-            black.reformat_one(
+            twoblack.reformat_one(
                 path,
                 fast=True,
-                write_back=black.WriteBack.YES,
+                write_back=twoblack.WriteBack.YES,
                 mode=DEFAULT_MODE,
                 report=report,
             )
             fsts.assert_called_once()
             # __BLACK_STDIN_FILENAME__ should have been stripped
-            report.done.assert_called_with(expected, black.Changed.YES)
+            report.done.assert_called_with(expected, twoblack.Changed.YES)
 
     def test_reformat_one_with_stdin_empty(self) -> None:
         output = io.StringIO()
         with patch("io.TextIOWrapper", lambda *args, **kwargs: output):
             try:
-                black.format_stdin_to_stdout(
+                twoblack.format_stdin_to_stdout(
                     fast=True,
                     content="",
-                    write_back=black.WriteBack.YES,
+                    write_back=twoblack.WriteBack.YES,
                     mode=DEFAULT_MODE,
                 )
             except io.UnsupportedOperation:
@@ -1234,28 +1234,28 @@ class BlackTestCase(BlackBaseTestCase):
 
     def test_required_version_matches_version(self) -> None:
         self.invokeBlack(
-            ["--required-version", black.__version__, "-c", "0"],
+            ["--required-version", twoblack.__version__, "-c", "0"],
             exit_code=0,
             ignore_config=True,
         )
 
     def test_required_version_matches_partial_version(self) -> None:
         self.invokeBlack(
-            ["--required-version", black.__version__.split(".")[0], "-c", "0"],
+            ["--required-version", twoblack.__version__.split(".")[0], "-c", "0"],
             exit_code=0,
             ignore_config=True,
         )
 
     def test_required_version_does_not_match_on_minor_version(self) -> None:
         self.invokeBlack(
-            ["--required-version", black.__version__.split(".")[0] + ".999", "-c", "0"],
+            ["--required-version", twoblack.__version__.split(".")[0] + ".999", "-c", "0"],
             exit_code=1,
             ignore_config=True,
         )
 
     def test_required_version_does_not_match_version(self) -> None:
         result = BlackRunner().invoke(
-            black.main,
+            twoblack.main,
             ["--required-version", "20.99b", "-c", "0"],
         )
         self.assertEqual(result.exit_code, 1)
@@ -1267,7 +1267,7 @@ class BlackTestCase(BlackBaseTestCase):
             for nl in ["\n", "\r\n"]:
                 contents = nl.join(["def f(  ):", "    pass"])
                 test_file.write_bytes(contents.encode())
-                ff(test_file, write_back=black.WriteBack.YES)
+                ff(test_file, write_back=twoblack.WriteBack.YES)
                 updated_contents: bytes = test_file.read_bytes()
                 self.assertIn(nl.encode(), updated_contents)
                 if nl == "\n":
@@ -1278,7 +1278,7 @@ class BlackTestCase(BlackBaseTestCase):
             contents = nl.join(["def f(  ):", "    pass"])
             runner = BlackRunner()
             result = runner.invoke(
-                black.main, ["-", "--fast"], input=BytesIO(contents.encode("utf8"))
+                twoblack.main, ["-", "--fast"], input=BytesIO(contents.encode("utf8"))
             )
             self.assertEqual(result.exit_code, 0)
             output = result.stdout_bytes
@@ -1288,7 +1288,7 @@ class BlackTestCase(BlackBaseTestCase):
 
     def test_assert_equivalent_different_asts(self) -> None:
         with self.assertRaises(AssertionError):
-            black.assert_equivalent("{}", "None")
+            twoblack.assert_equivalent("{}", "None")
 
     def test_shhh_click(self) -> None:
         try:
@@ -1305,7 +1305,7 @@ class BlackTestCase(BlackBaseTestCase):
             with self.assertRaises(RuntimeError):
                 _unicodefun._verify_python_env()
         # Now, let's silence Click...
-        black.patch_click()
+        twoblack.patch_click()
         # ...and confirm it's silent.
         with patch("locale.getpreferredencoding") as gpe:
             gpe.return_value = "ASCII"
@@ -1330,9 +1330,9 @@ class BlackTestCase(BlackBaseTestCase):
             ff(THIS_DIR / "util.py")
 
     def test_invalid_config_return_code(self) -> None:
-        tmp_file = Path(black.dump_to_file())
+        tmp_file = Path(twoblack.dump_to_file())
         try:
-            tmp_config = Path(black.dump_to_file())
+            tmp_config = Path(twoblack.dump_to_file())
             tmp_config.unlink()
             args = ["--config", str(tmp_config), str(tmp_file)]
             self.invokeBlack(args, exit_code=2, ignore_config=False)
@@ -1341,7 +1341,7 @@ class BlackTestCase(BlackBaseTestCase):
 
     def test_parse_pyproject_toml(self) -> None:
         test_toml_file = THIS_DIR / "test.toml"
-        config = black.parse_pyproject_toml(str(test_toml_file))
+        config = twoblack.parse_pyproject_toml(str(test_toml_file))
         self.assertEqual(config["verbose"], 1)
         self.assertEqual(config["check"], "no")
         self.assertEqual(config["diff"], "y")
@@ -1355,7 +1355,7 @@ class BlackTestCase(BlackBaseTestCase):
     def test_read_pyproject_toml(self) -> None:
         test_toml_file = THIS_DIR / "test.toml"
         fake_ctx = FakeContext()
-        black.read_pyproject_toml(fake_ctx, FakeParameter(), str(test_toml_file))
+        twoblack.read_pyproject_toml(fake_ctx, FakeParameter(), str(test_toml_file))
         config = fake_ctx.default_map
         self.assertEqual(config["verbose"], "1")
         self.assertEqual(config["check"], "no")
@@ -1384,21 +1384,21 @@ class BlackTestCase(BlackBaseTestCase):
             src_python.touch()
 
             self.assertEqual(
-                black.find_project_root((src_dir, test_dir)),
+                twoblack.find_project_root((src_dir, test_dir)),
                 (root.resolve(), "pyproject.toml"),
             )
             self.assertEqual(
-                black.find_project_root((src_dir,)),
+                twoblack.find_project_root((src_dir,)),
                 (src_dir.resolve(), "pyproject.toml"),
             )
             self.assertEqual(
-                black.find_project_root((src_python,)),
+                twoblack.find_project_root((src_python,)),
                 (src_dir.resolve(), "pyproject.toml"),
             )
 
             with change_directory(test_dir):
                 self.assertEqual(
-                    black.find_project_root(("-",), stdin_filename="../src/a.py"),
+                    twoblack.find_project_root(("-",), stdin_filename="../src/a.py"),
                     (src_dir.resolve(), "pyproject.toml"),
                 )
 
@@ -1409,7 +1409,7 @@ class BlackTestCase(BlackBaseTestCase):
         find_user_pyproject_toml.side_effect = RuntimeError()
 
         with redirect_stderr(io.StringIO()) as stderr:
-            result = black.files.find_pyproject_toml(
+            result = twoblack.files.find_pyproject_toml(
                 path_search_start=(str(Path.cwd().root),)
             )
 
@@ -1419,7 +1419,7 @@ class BlackTestCase(BlackBaseTestCase):
 
     @patch(
         "black.files.find_user_pyproject_toml",
-        black.files.find_user_pyproject_toml.__wrapped__,
+        twoblack.files.find_user_pyproject_toml.__wrapped__,
     )
     def test_find_user_pyproject_toml_linux(self) -> None:
         if system() == "Windows":
@@ -1430,7 +1430,7 @@ class BlackTestCase(BlackBaseTestCase):
             tmp_user_config = Path(workspace) / "black"
             with patch.dict("os.environ", {"XDG_CONFIG_HOME": workspace}):
                 self.assertEqual(
-                    black.files.find_user_pyproject_toml(), tmp_user_config.resolve()
+                    twoblack.files.find_user_pyproject_toml(), tmp_user_config.resolve()
                 )
 
         # Test fallback for XDG_CONFIG_HOME
@@ -1438,7 +1438,7 @@ class BlackTestCase(BlackBaseTestCase):
             os.environ.pop("XDG_CONFIG_HOME", None)
             fallback_user_config = Path("~/.config").expanduser() / "black"
             self.assertEqual(
-                black.files.find_user_pyproject_toml(), fallback_user_config.resolve()
+                twoblack.files.find_user_pyproject_toml(), fallback_user_config.resolve()
             )
 
     def test_find_user_pyproject_toml_windows(self) -> None:
@@ -1447,7 +1447,7 @@ class BlackTestCase(BlackBaseTestCase):
 
         user_config_path = Path.home() / ".black"
         self.assertEqual(
-            black.files.find_user_pyproject_toml(), user_config_path.resolve()
+            twoblack.files.find_user_pyproject_toml(), user_config_path.resolve()
         )
 
     def test_bpo_33660_workaround(self) -> None:
@@ -1458,8 +1458,8 @@ class BlackTestCase(BlackBaseTestCase):
         root = Path("/")
         with change_directory(root):
             path = Path("workspace") / "project"
-            report = black.Report(verbose=True)
-            normalized_path = black.normalize_path_maybe_ignore(path, root, report)
+            report = twoblack.Report(verbose=True)
+            normalized_path = twoblack.normalize_path_maybe_ignore(path, root, report)
             self.assertEqual(normalized_path, "workspace/project")
 
     def test_normalize_path_ignore_windows_junctions_outside_of_root(self) -> None:
@@ -1472,8 +1472,8 @@ class BlackTestCase(BlackBaseTestCase):
             junction_target_outside_of_root = root / ".."
             os.system(f"mklink /J {junction_dir} {junction_target_outside_of_root}")
 
-            report = black.Report(verbose=True)
-            normalized_path = black.normalize_path_maybe_ignore(
+            report = twoblack.Report(verbose=True)
+            normalized_path = twoblack.normalize_path_maybe_ignore(
                 junction_dir, root, report
             )
             # Manually delete for Python < 3.8
@@ -1483,8 +1483,8 @@ class BlackTestCase(BlackBaseTestCase):
 
     def test_newline_comment_interaction(self) -> None:
         source = "class A:\\\r\n# type: ignore\n pass\n"
-        output = black.format_str(source, mode=DEFAULT_MODE)
-        black.assert_stable(source, output, mode=DEFAULT_MODE)
+        output = twoblack.format_str(source, mode=DEFAULT_MODE)
+        twoblack.assert_stable(source, output, mode=DEFAULT_MODE)
 
     def test_bpo_2142_workaround(self) -> None:
         # https://bugs.python.org/issue2142
@@ -1493,13 +1493,13 @@ class BlackTestCase(BlackBaseTestCase):
         # read_data adds a trailing newline
         source = source.rstrip()
         expected, _ = read_data("miscellaneous", "missing_final_newline.diff")
-        tmp_file = Path(black.dump_to_file(source, ensure_final_newline=False))
+        tmp_file = Path(twoblack.dump_to_file(source, ensure_final_newline=False))
         diff_header = re.compile(
             rf"{re.escape(str(tmp_file))}\t\d\d\d\d-\d\d-\d\d "
             r"\d\d:\d\d:\d\d\.\d\d\d\d\d\d \+\d\d\d\d"
         )
         try:
-            result = BlackRunner().invoke(black.main, ["--diff", str(tmp_file)])
+            result = BlackRunner().invoke(twoblack.main, ["--diff", str(tmp_file)])
             self.assertEqual(result.exit_code, 0)
         finally:
             os.unlink(tmp_file)
@@ -1521,40 +1521,40 @@ class BlackTestCase(BlackBaseTestCase):
         """Test the code option with no changes."""
         code = 'print("Hello world")\n'
         args = ["--code", code]
-        result = CliRunner().invoke(black.main, args)
+        result = CliRunner().invoke(twoblack.main, args)
 
         self.compare_results(result, code, 0)
 
     def test_code_option_changed(self) -> None:
         """Test the code option when changes are required."""
         code = "print('hello world')"
-        formatted = black.format_str(code, mode=DEFAULT_MODE)
+        formatted = twoblack.format_str(code, mode=DEFAULT_MODE)
 
         args = ["--code", code]
-        result = CliRunner().invoke(black.main, args)
+        result = CliRunner().invoke(twoblack.main, args)
 
         self.compare_results(result, formatted, 0)
 
     def test_code_option_check(self) -> None:
         """Test the code option when check is passed."""
         args = ["--check", "--code", 'print("Hello world")\n']
-        result = CliRunner().invoke(black.main, args)
+        result = CliRunner().invoke(twoblack.main, args)
         self.compare_results(result, "", 0)
 
     def test_code_option_check_changed(self) -> None:
         """Test the code option when changes are required, and check is passed."""
         args = ["--check", "--code", "print('hello world')"]
-        result = CliRunner().invoke(black.main, args)
+        result = CliRunner().invoke(twoblack.main, args)
         self.compare_results(result, "", 1)
 
     def test_code_option_diff(self) -> None:
         """Test the code option when diff is passed."""
         code = "print('hello world')"
-        formatted = black.format_str(code, mode=DEFAULT_MODE)
+        formatted = twoblack.format_str(code, mode=DEFAULT_MODE)
         result_diff = diff(code, formatted, "STDIN", "STDOUT")
 
         args = ["--diff", "--code", code]
-        result = CliRunner().invoke(black.main, args)
+        result = CliRunner().invoke(twoblack.main, args)
 
         # Remove time from diff
         output = DIFF_TIME.sub("", result.output)
@@ -1565,13 +1565,13 @@ class BlackTestCase(BlackBaseTestCase):
     def test_code_option_color_diff(self) -> None:
         """Test the code option when color and diff are passed."""
         code = "print('hello world')"
-        formatted = black.format_str(code, mode=DEFAULT_MODE)
+        formatted = twoblack.format_str(code, mode=DEFAULT_MODE)
 
         result_diff = diff(code, formatted, "STDIN", "STDOUT")
         result_diff = color_diff(result_diff)
 
         args = ["--diff", "--color", "--code", code]
-        result = CliRunner().invoke(black.main, args)
+        result = CliRunner().invoke(twoblack.main, args)
 
         # Remove time from diff
         output = DIFF_TIME.sub("", result.output)
@@ -1583,24 +1583,24 @@ class BlackTestCase(BlackBaseTestCase):
     def test_code_option_safe(self) -> None:
         """Test that the code option throws an error when the sanity checks fail."""
         # Patch black.assert_equivalent to ensure the sanity checks fail
-        with patch.object(black, "assert_equivalent", side_effect=AssertionError):
+        with patch.object(twoblack, "assert_equivalent", side_effect=AssertionError):
             code = 'print("Hello world")'
             error_msg = f"{code}\nerror: cannot format <string>: \n"
 
             args = ["--safe", "--code", code]
-            result = CliRunner().invoke(black.main, args)
+            result = CliRunner().invoke(twoblack.main, args)
 
             self.compare_results(result, error_msg, 123)
 
     def test_code_option_fast(self) -> None:
         """Test that the code option ignores errors when the sanity checks fail."""
         # Patch black.assert_equivalent to ensure the sanity checks fail
-        with patch.object(black, "assert_equivalent", side_effect=AssertionError):
+        with patch.object(twoblack, "assert_equivalent", side_effect=AssertionError):
             code = 'print("Hello world")'
-            formatted = black.format_str(code, mode=DEFAULT_MODE)
+            formatted = twoblack.format_str(code, mode=DEFAULT_MODE)
 
             args = ["--fast", "--code", code]
-            result = CliRunner().invoke(black.main, args)
+            result = CliRunner().invoke(twoblack.main, args)
 
             self.compare_results(result, formatted, 0)
 
@@ -1609,11 +1609,11 @@ class BlackTestCase(BlackBaseTestCase):
         """
         Test that the code option finds the pyproject.toml in the current directory.
         """
-        with patch.object(black, "parse_pyproject_toml", return_value={}) as parse:
+        with patch.object(twoblack, "parse_pyproject_toml", return_value={}) as parse:
             args = ["--code", "print"]
             # This is the only directory known to contain a pyproject.toml
             with change_directory(PROJECT_ROOT):
-                CliRunner().invoke(black.main, args)
+                CliRunner().invoke(twoblack.main, args)
                 pyproject_path = Path(Path.cwd(), "pyproject.toml").resolve()
 
             assert (
@@ -1630,10 +1630,10 @@ class BlackTestCase(BlackBaseTestCase):
         """
         Test that the code option finds the pyproject.toml in the parent directory.
         """
-        with patch.object(black, "parse_pyproject_toml", return_value={}) as parse:
+        with patch.object(twoblack, "parse_pyproject_toml", return_value={}) as parse:
             with change_directory(THIS_DIR):
                 args = ["--code", "print"]
-                CliRunner().invoke(black.main, args)
+                CliRunner().invoke(twoblack.main, args)
 
                 pyproject_path = Path(Path().cwd().parent, "pyproject.toml").resolve()
                 assert (
@@ -1649,14 +1649,14 @@ class BlackTestCase(BlackBaseTestCase):
         """
         Test that an unexpected EOF SyntaxError is nicely presented.
         """
-        with pytest.raises(black.parsing.InvalidInput) as exc_info:
-            black.lib2to3_parse("print(", {})
+        with pytest.raises(twoblack.parsing.InvalidInput) as exc_info:
+            twoblack.lib2to3_parse("print(", {})
 
         exc_info.match("Cannot parse: 2:0: EOF in multi-line statement")
 
     def test_equivalency_ast_parse_failure_includes_error(self) -> None:
         with pytest.raises(AssertionError) as err:
-            black.assert_equivalent("a«»a  = 1", "a«»a  = 1")
+            twoblack.assert_equivalent("a«»a  = 1", "a«»a  = 1")
 
         err.match("--safe")
         # Unfortunately the SyntaxError message has changed in newer versions so we
@@ -1698,11 +1698,11 @@ class TestCaching:
         with cache_dir() as workspace:
             cache_file = get_cache_file(mode)
             cache_file.write_text("this is not a pickle")
-            assert black.read_cache(mode) == {}
+            assert twoblack.read_cache(mode) == {}
             src = (workspace / "test.py").resolve()
             src.write_text("print('hello')")
             invokeBlack([str(src)])
-            cache = black.read_cache(mode)
+            cache = twoblack.read_cache(mode)
             assert str(src) in cache
 
     def test_cache_single_file_already_cached(self) -> None:
@@ -1710,7 +1710,7 @@ class TestCaching:
         with cache_dir() as workspace:
             src = (workspace / "test.py").resolve()
             src.write_text("print('hello')")
-            black.write_cache({}, [src], mode)
+            twoblack.write_cache({}, [src], mode)
             invokeBlack([str(src)])
             assert src.read_text() == "print('hello')"
 
@@ -1726,13 +1726,13 @@ class TestCaching:
             two = (workspace / "two.py").resolve()
             with two.open("w") as fobj:
                 fobj.write("print('hello')")
-            black.write_cache({}, [one], mode)
+            twoblack.write_cache({}, [one], mode)
             invokeBlack([str(workspace)])
             with one.open("r") as fobj:
                 assert fobj.read() == "print('hello')"
             with two.open("r") as fobj:
                 assert fobj.read() == 'print("hello")\n'
-            cache = black.read_cache(mode)
+            cache = twoblack.read_cache(mode)
             assert str(one) in cache
             assert str(two) in cache
 
@@ -1778,7 +1778,7 @@ class TestCaching:
         mode = DEFAULT_MODE
         with cache_dir():
             result = CliRunner().invoke(
-                black.main, ["-"], input=BytesIO(b"print('hello')")
+                twoblack.main, ["-"], input=BytesIO(b"print('hello')")
             )
             assert not result.exit_code
             cache_file = get_cache_file(mode)
@@ -1787,17 +1787,17 @@ class TestCaching:
     def test_read_cache_no_cachefile(self) -> None:
         mode = DEFAULT_MODE
         with cache_dir():
-            assert black.read_cache(mode) == {}
+            assert twoblack.read_cache(mode) == {}
 
     def test_write_cache_read_cache(self) -> None:
         mode = DEFAULT_MODE
         with cache_dir() as workspace:
             src = (workspace / "test.py").resolve()
             src.touch()
-            black.write_cache({}, [src], mode)
-            cache = black.read_cache(mode)
+            twoblack.write_cache({}, [src], mode)
+            cache = twoblack.read_cache(mode)
             assert str(src) in cache
-            assert cache[str(src)] == black.get_cache_info(src)
+            assert cache[str(src)] == twoblack.get_cache_info(src)
 
     def test_filter_cached(self) -> None:
         with TemporaryDirectory() as workspace:
@@ -1809,10 +1809,10 @@ class TestCaching:
             cached.touch()
             cached_but_changed.touch()
             cache = {
-                str(cached): black.get_cache_info(cached),
+                str(cached): twoblack.get_cache_info(cached),
                 str(cached_but_changed): (0.0, 0),
             }
-            todo, done = black.cache.filter_cached(
+            todo, done = twoblack.cache.filter_cached(
                 cache, {uncached, cached, cached_but_changed}
             )
             assert todo == {uncached, cached_but_changed}
@@ -1822,7 +1822,7 @@ class TestCaching:
         mode = DEFAULT_MODE
         with cache_dir(exists=False) as workspace:
             assert not workspace.exists()
-            black.write_cache({}, [], mode)
+            twoblack.write_cache({}, [], mode)
             assert workspace.exists()
 
     @event_loop()
@@ -1838,7 +1838,7 @@ class TestCaching:
             with clean.open("w") as fobj:
                 fobj.write('print("hello")\n')
             invokeBlack([str(workspace)], exit_code=123)
-            cache = black.read_cache(mode)
+            cache = twoblack.read_cache(mode)
             assert str(failing) not in cache
             assert str(clean) in cache
 
@@ -1846,7 +1846,7 @@ class TestCaching:
         mode = DEFAULT_MODE
         with cache_dir(), patch.object(Path, "open") as mock:
             mock.side_effect = OSError
-            black.write_cache({}, [], mode)
+            twoblack.write_cache({}, [], mode)
 
     def test_read_cache_line_lengths(self) -> None:
         mode = DEFAULT_MODE
@@ -1854,10 +1854,10 @@ class TestCaching:
         with cache_dir() as workspace:
             path = (workspace / "file.py").resolve()
             path.touch()
-            black.write_cache({}, [path], mode)
-            one = black.read_cache(mode)
+            twoblack.write_cache({}, [path], mode)
+            one = twoblack.read_cache(mode)
             assert str(path) in one
-            two = black.read_cache(short_mode)
+            two = twoblack.read_cache(short_mode)
             assert str(path) not in two
 
 
@@ -1880,7 +1880,7 @@ def assert_collected_sources(
         None if extend_exclude is None else compile_pattern(extend_exclude)
     )
     gs_force_exclude = None if force_exclude is None else compile_pattern(force_exclude)
-    collected = black.get_sources(
+    collected = twoblack.get_sources(
         ctx=ctx or FakeContext(),
         src=gs_src,
         quiet=False,
@@ -1889,7 +1889,7 @@ def assert_collected_sources(
         exclude=gs_exclude,
         extend_exclude=gs_extend_exclude,
         force_exclude=gs_force_exclude,
-        report=black.Report(),
+        report=twoblack.Report(),
         stdin_filename=stdin_filename,
     )
     assert sorted(collected) == sorted(gs_expected)
@@ -1935,7 +1935,7 @@ class TestFileCollection:
         path = THIS_DIR / "data" / "include_exclude_tests"
         include = re.compile(r"\.pyi?$")
         exclude = re.compile(r"")
-        report = black.Report()
+        report = twoblack.Report()
         gitignore = PathSpec.from_lines(
             "gitwildmatch", ["exclude/", ".definitely_exclude"]
         )
@@ -1946,7 +1946,7 @@ class TestFileCollection:
         ]
         this_abs = THIS_DIR.resolve()
         sources.extend(
-            black.gen_python_files(
+            twoblack.gen_python_files(
                 path.iterdir(),
                 this_abs,
                 include,
@@ -1965,8 +1965,8 @@ class TestFileCollection:
         path = Path(THIS_DIR / "data" / "nested_gitignore_tests")
         include = re.compile(r"\.pyi?$")
         exclude = re.compile(r"")
-        root_gitignore = black.files.get_gitignore(path)
-        report = black.Report()
+        root_gitignore = twoblack.files.get_gitignore(path)
+        report = twoblack.Report()
         expected: List[Path] = [
             Path(path / "x.py"),
             Path(path / "root/b.py"),
@@ -1975,7 +1975,7 @@ class TestFileCollection:
         ]
         this_abs = THIS_DIR.resolve()
         sources = list(
-            black.gen_python_files(
+            twoblack.gen_python_files(
                 path.iterdir(),
                 this_abs,
                 include,
@@ -2001,7 +2001,7 @@ class TestFileCollection:
         path = THIS_DIR / "data" / "invalid_gitignore_tests"
         empty_config = path / "pyproject.toml"
         result = BlackRunner().invoke(
-            black.main, ["--verbose", "--config", str(empty_config), str(path)]
+            twoblack.main, ["--verbose", "--config", str(empty_config), str(path)]
         )
         assert result.exit_code == 1
         assert result.stderr_bytes is not None
@@ -2013,7 +2013,7 @@ class TestFileCollection:
         path = THIS_DIR / "data" / "invalid_nested_gitignore_tests"
         empty_config = path / "pyproject.toml"
         result = BlackRunner().invoke(
-            black.main, ["--verbose", "--config", str(empty_config), str(path)]
+            twoblack.main, ["--verbose", "--config", str(empty_config), str(path)]
         )
         assert result.exit_code == 1
         assert result.stderr_bytes is not None
@@ -2056,9 +2056,9 @@ class TestFileCollection:
         path = MagicMock()
         root = THIS_DIR.resolve()
         child = MagicMock()
-        include = re.compile(black.DEFAULT_INCLUDES)
-        exclude = re.compile(black.DEFAULT_EXCLUDES)
-        report = black.Report()
+        include = re.compile(twoblack.DEFAULT_INCLUDES)
+        exclude = re.compile(twoblack.DEFAULT_EXCLUDES)
+        report = twoblack.Report()
         gitignore = PathSpec.from_lines("gitwildmatch", [])
         # `child` should behave like a symlink which resolved path is clearly
         # outside of the `root` directory.
@@ -2067,7 +2067,7 @@ class TestFileCollection:
         child.as_posix.return_value = "/a/b/c"
         try:
             list(
-                black.gen_python_files(
+                twoblack.gen_python_files(
                     path.iterdir(),
                     root,
                     include,
@@ -2150,10 +2150,10 @@ class TestFileCollection:
 
 
 try:
-    with open(black.__file__, "r", encoding="utf-8") as _bf:
+    with open(twoblack.__file__, "r", encoding="utf-8") as _bf:
         black_source_lines = _bf.readlines()
 except UnicodeDecodeError:
-    if not black.COMPILED:
+    if not twoblack.COMPILED:
         raise
 
 

@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from typing import Iterator, TypeVar, Union
 
-from black.nodes import Visitor
-from black.output import out
-from black.parsing import lib2to3_parse
+from twoblack.nodes import Visitor
+from twoblack.output import out
+from twoblack.parsing import lib2to3_parse
 from blib2to3.pgen2 import token
 from blib2to3.pytree import Leaf, Node, type_repr
 

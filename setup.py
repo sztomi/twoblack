@@ -60,7 +60,7 @@ if USE_MYPYC:
     ]
     discovered = []
     # There's no good reason for blackd to be compiled.
-    discovered.extend(find_python_files(src / "black"))
+    discovered.extend(find_python_files(src / "twoblack"))
     discovered.extend(find_python_files(src / "blib2to3"))
     mypyc_targets = [
         str(p) for p in discovered if p.relative_to(src).as_posix() not in blocklist
@@ -75,7 +75,7 @@ else:
     ext_modules = []
 
 setup(
-    name="black",
+    name="2black",
     use_scm_version={
         "write_to": "src/_black_version.py",
         "write_to_template": 'version = "{version}"\n',
@@ -95,7 +95,7 @@ setup(
     package_dir={"": "src"},
     package_data={
         "blib2to3": ["*.txt"],
-        "black": ["py.typed"],
+        "twoblack": ["py.typed"],
     },
     python_requires=">=3.6.2",
     zip_safe=False,
@@ -134,8 +134,8 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "black=black:patched_main",
-            "blackd=blackd:patched_main [d]",
+            "2black=twoblack:patched_main",
+            "2blackd=twoblackd:patched_main [d]",
         ]
     },
 )

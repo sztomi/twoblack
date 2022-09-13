@@ -23,6 +23,8 @@ from typing import (
     Union,
 )
 
+from twoblack.const import DEFAULT_INDENT
+
 if sys.version_info < (3, 8):
     from typing_extensions import Final, Literal
 else:
@@ -30,11 +32,11 @@ else:
 
 from mypy_extensions import trait
 
-from black.brackets import BracketMatchError
-from black.comments import contains_pragma_comment
-from black.lines import Line, append_leaves
-from black.mode import Feature
-from black.nodes import (
+from twoblack.brackets import BracketMatchError
+from twoblack.comments import contains_pragma_comment
+from twoblack.lines import Line, append_leaves
+from twoblack.mode import Feature
+from twoblack.nodes import (
     CLOSING_BRACKETS,
     OPENING_BRACKETS,
     STANDALONE_COMMENT,
@@ -45,8 +47,8 @@ from black.nodes import (
     replace_child,
     syms,
 )
-from black.rusty import Err, Ok, Result
-from black.strings import (
+from twoblack.rusty import Err, Ok, Result
+from twoblack.strings import (
     assert_is_leaf_string,
     get_string_prefix,
     has_triple_quotes,
@@ -964,7 +966,7 @@ class BaseStringSplitter(StringTransformer):
         #   NN: The leaf that is after N.
 
         # WMA4 the whitespace at the beginning of the line.
-        offset = line.depth * 4
+        offset = line.depth * DEFAULT_INDENT
 
         if is_valid_index(string_idx - 1):
             p_idx = string_idx - 1
@@ -1275,7 +1277,7 @@ class StringSplitter(BaseStringSplitter, CustomSplitMapMixin):
                 line we will construct.
             """
             result = self.line_length
-            result -= line.depth * 4
+            result -= line.depth * DEFAULT_INDENT
             result -= 1 if ends_with_comma else 0
             result -= string_op_leaves_length
             return result
@@ -1286,7 +1288,7 @@ class StringSplitter(BaseStringSplitter, CustomSplitMapMixin):
         # The last index of a string of length N is N-1.
         max_break_idx -= 1
         # Leading whitespace is not present in the string value (e.g. Leaf.value).
-        max_break_idx -= line.depth * 4
+        max_break_idx -= line.depth * DEFAULT_INDENT
         if max_break_idx < 0:
             yield TErr(
                 f"Unable to split {LL[string_idx].value} at such high of a line depth:"
@@ -1697,7 +1699,7 @@ class StringParenWrapper(BaseStringSplitter, CustomSplitMapMixin):
             # If the string has no spaces...
             if " " not in string_value:
                 # And will still violate the line length limit when split...
-                max_string_length = self.line_length - ((line.depth + 1) * 4)
+                max_string_length = self.line_length - ((line.depth + 1) * DEFAULT_INDENT)
                 if len(string_value) > max_string_length:
                     # And has no associated custom splits...
                     if not self.has_custom_splits(string_value):

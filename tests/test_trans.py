@@ -1,6 +1,6 @@
 from typing import List, Tuple
 
-from black.trans import iter_fexpr_spans
+from twoblack.trans import iter_fexpr_spans
 
 
 def test_fexpr_spans() -> None:

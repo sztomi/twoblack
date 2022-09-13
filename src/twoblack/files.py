@@ -30,9 +30,9 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
-from black.handle_ipynb_magics import jupyter_dependencies_are_installed
-from black.output import err
-from black.report import Report
+from twoblack.handle_ipynb_magics import jupyter_dependencies_are_installed
+from twoblack.output import err
+from twoblack.report import Report
 
 if TYPE_CHECKING:
     import colorama  # noqa: F401

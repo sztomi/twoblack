@@ -17,7 +17,7 @@ if sys.version_info < (3, 8):
 else:
     from typing import Final
 
-from black.const import DEFAULT_LINE_LENGTH
+from twoblack.const import DEFAULT_INDENT, DEFAULT_LINE_LENGTH
 
 
 class TargetVersion(Enum):
@@ -167,6 +167,7 @@ class Deprecated(UserWarning):
 class Mode:
     target_versions: Set[TargetVersion] = field(default_factory=set)
     line_length: int = DEFAULT_LINE_LENGTH
+    indent: int = DEFAULT_INDENT
     string_normalization: bool = True
     is_pyi: bool = False
     is_ipynb: bool = False

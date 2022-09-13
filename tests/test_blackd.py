@@ -11,7 +11,7 @@ try:
     from aiohttp import web
     from aiohttp.test_utils import AioHTTPTestCase
 
-    import blackd
+    import twoblackd
 except ImportError as e:
     raise RuntimeError("Please install Black with the 'd' extra") from e
 
@@ -34,13 +34,13 @@ else:
 class BlackDTestCase(AioHTTPTestCase):  # type: ignore[misc]
     def test_blackd_main(self) -> None:
         with patch("blackd.web.run_app"):
-            result = CliRunner().invoke(blackd.main, [])
+            result = CliRunner().invoke(twoblackd.main, [])
             if result.exception is not None:
                 raise result.exception
             self.assertEqual(result.exit_code, 0)
 
     async def get_application(self) -> web.Application:
-        return blackd.make_app()
+        return twoblackd.make_app()
 
     @unittest_run_loop
     async def test_blackd_request_needs_formatting(self) -> None:
@@ -68,14 +68,14 @@ class BlackDTestCase(AioHTTPTestCase):  # type: ignore[misc]
     @unittest_run_loop
     async def test_blackd_unsupported_version(self) -> None:
         response = await self.client.post(
-            "/", data=b"what", headers={blackd.PROTOCOL_VERSION_HEADER: "2"}
+            "/", data=b"what", headers={twoblackd.PROTOCOL_VERSION_HEADER: "2"}
         )
         self.assertEqual(response.status, 501)
 
     @unittest_run_loop
     async def test_blackd_supported_version(self) -> None:
         response = await self.client.post(
-            "/", data=b"what", headers={blackd.PROTOCOL_VERSION_HEADER: "1"}
+            "/", data=b"what", headers={twoblackd.PROTOCOL_VERSION_HEADER: "1"}
         )
         self.assertEqual(response.status, 200)
 
@@ -85,7 +85,7 @@ class BlackDTestCase(AioHTTPTestCase):  # type: ignore[misc]
             response = await self.client.post(
                 "/",
                 data=b"what",
-                headers={blackd.PYTHON_VARIANT_HEADER: header_value},
+                headers={twoblackd.PYTHON_VARIANT_HEADER: header_value},
             )
             self.assertEqual(response.status, expected_status)
 
@@ -106,7 +106,7 @@ class BlackDTestCase(AioHTTPTestCase):  # type: ignore[misc]
     async def test_blackd_pyi(self) -> None:
         source, expected = read_data("miscellaneous", "stub.pyi")
         response = await self.client.post(
-            "/", data=source, headers={blackd.PYTHON_VARIANT_HEADER: "pyi"}
+            "/", data=source, headers={twoblackd.PYTHON_VARIANT_HEADER: "pyi"}
         )
         self.assertEqual(response.status, 200)
         self.assertEqual(await response.text(), expected)
@@ -121,7 +121,7 @@ class BlackDTestCase(AioHTTPTestCase):  # type: ignore[misc]
         expected, _ = read_data("miscellaneous", "blackd_diff.diff")
 
         response = await self.client.post(
-            "/", data=source, headers={blackd.DIFF_HEADER: "true"}
+            "/", data=source, headers={twoblackd.DIFF_HEADER: "true"}
         )
         self.assertEqual(response.status, 200)
 
@@ -143,7 +143,7 @@ class BlackDTestCase(AioHTTPTestCase):  # type: ignore[misc]
 
         async def check(header_value: str, expected_status: int) -> None:
             response = await self.client.post(
-                "/", data=code, headers={blackd.PYTHON_VARIANT_HEADER: header_value}
+                "/", data=code, headers={twoblackd.PYTHON_VARIANT_HEADER: header_value}
             )
             self.assertEqual(
                 response.status, expected_status, msg=await response.text()
@@ -164,7 +164,7 @@ class BlackDTestCase(AioHTTPTestCase):  # type: ignore[misc]
     @unittest_run_loop
     async def test_blackd_line_length(self) -> None:
         response = await self.client.post(
-            "/", data=b'print("hello")\n', headers={blackd.LINE_LENGTH_HEADER: "7"}
+            "/", data=b'print("hello")\n', headers={twoblackd.LINE_LENGTH_HEADER: "7"}
         )
         self.assertEqual(response.status, 200)
 
@@ -173,21 +173,21 @@ class BlackDTestCase(AioHTTPTestCase):  # type: ignore[misc]
         response = await self.client.post(
             "/",
             data=b'print("hello")\n',
-            headers={blackd.LINE_LENGTH_HEADER: "NaN"},
+            headers={twoblackd.LINE_LENGTH_HEADER: "NaN"},
         )
         self.assertEqual(response.status, 400)
 
     @unittest_run_loop
     async def test_blackd_preview(self) -> None:
         response = await self.client.post(
-            "/", data=b'print("hello")\n', headers={blackd.PREVIEW: "true"}
+            "/", data=b'print("hello")\n', headers={twoblackd.PREVIEW: "true"}
         )
         self.assertEqual(response.status, 204)
 
     @unittest_run_loop
     async def test_blackd_response_black_version_header(self) -> None:
         response = await self.client.post("/")
-        self.assertIsNotNone(response.headers.get(blackd.BLACK_VERSION_HEADER))
+        self.assertIsNotNone(response.headers.get(twoblackd.BLACK_VERSION_HEADER))
 
     @unittest_run_loop
     async def test_cors_preflight(self) -> None:

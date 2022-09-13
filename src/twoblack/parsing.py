@@ -11,8 +11,8 @@ if sys.version_info < (3, 8):
 else:
     from typing import Final
 
-from black.mode import Feature, TargetVersion, supports_feature
-from black.nodes import syms
+from twoblack.mode import Feature, TargetVersion, supports_feature
+from twoblack.nodes import syms
 from blib2to3 import pygram
 from blib2to3.pgen2 import driver
 from blib2to3.pgen2.grammar import Grammar
